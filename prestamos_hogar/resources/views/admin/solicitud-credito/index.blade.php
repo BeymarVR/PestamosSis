@@ -10,12 +10,20 @@
             <h1 class="text-2xl font-bold text-slate-900">Solicitudes de Crédito</h1>
             <p class="mt-1 text-sm text-slate-600">Gestión y seguimiento de solicitudes de crédito registradas</p>
         </div>
-        <a href="{{ route('admin.solicitud-credito.create') }}" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-colors duration-200 flex items-center space-x-2">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-            </svg>
-            <span>Nueva Solicitud</span>
-        </a>
+        <div class="flex items-center space-x-3">
+            <a href="{{ route('admin.solicitud-credito.exportar', request()->query()) }}" class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-lg font-medium transition-colors duration-200 flex items-center space-x-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                </svg>
+                <span>Exportar</span>
+            </a>
+            <a href="{{ route('admin.solicitud-credito.create') }}" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-colors duration-200 flex items-center space-x-2 shadow-sm">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                </svg>
+                <span>Nueva Solicitud</span>
+            </a>
+        </div>
     </div>
 
     <!-- Filtros -->
@@ -91,7 +99,7 @@
                     </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-slate-200">
-                    @forelse ($solicitudes as $solicitud)
+                    @forelse($solicitudes as $solicitud)
                     <tr class="hover:bg-slate-50 transition-colors duration-150">
                         <td class="px-6 py-4 whitespace-nowrap">
                             <div class="text-sm font-medium text-slate-900">{{ $solicitud->numero_solicitud }}</div>

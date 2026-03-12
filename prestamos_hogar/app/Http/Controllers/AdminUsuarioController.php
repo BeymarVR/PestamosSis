@@ -11,37 +11,37 @@ use Barryvdh\DomPDF\Facade\Pdf;
 class AdminUsuarioController extends Controller
 {
     public function index(Request $request)
-{
-    $query = Usuario::with('rol');
+    {
+        $query = Usuario::with('rol');
 
-    if ($request->filled('buscar')) {
-        $query->where(function ($q) use ($request) {
-            $q->where('nombre_completo', 'like', '%' . $request->buscar . '%')
-              ->orWhere('correo', 'like', '%' . $request->buscar . '%');
-        });
+        if ($request->filled('buscar')) {
+            $query->where(function ($q) use ($request) {
+                $q->where('nombre_completo', 'like', '%' . $request->buscar . '%')
+                    ->orWhere('correo', 'like', '%' . $request->buscar . '%');
+            });
+        }
+
+        if ($request->filled('rol')) {
+            $query->whereHas('rol', function ($q) use ($request) {
+                $q->where('nombre', $request->rol);
+            });
+        }
+
+        if ($request->filled('estado')) {
+            $activo = $request->estado === 'activo' ? 1 : 0;
+            $query->where('activo', $activo);
+        }
+
+        $usuarios = $query->paginate(10);
+
+        $totalAdmin = Usuario::whereHas('rol', fn($q) => $q->where('nombre', 'admin'))->count();
+        $totalGestor = Usuario::whereHas('rol', fn($q) => $q->where('nombre', 'gestor'))->count();
+        $totalUsuario = Usuario::whereHas('rol', fn($q) => $q->where('nombre', 'usuario'))->count();
+
+        return view('admin.usuarios.index', compact(
+            'usuarios', 'totalAdmin', 'totalGestor', 'totalUsuario'
+        ));
     }
-
-    if ($request->filled('rol')) {
-        $query->whereHas('rol', function ($q) use ($request) {
-            $q->where('nombre', $request->rol);
-        });
-    }
-
-    if ($request->filled('estado')) {
-        $activo = $request->estado === 'activo' ? 1 : 0;
-        $query->where('activo', $activo);
-    }
-
-    $usuarios = $query->paginate(10);
-
-    $totalAdmin = Usuario::whereHas('rol', fn($q) => $q->where('nombre', 'admin'))->count();
-    $totalGestor = Usuario::whereHas('rol', fn($q) => $q->where('nombre', 'gestor'))->count();
-    $totalUsuario = Usuario::whereHas('rol', fn($q) => $q->where('nombre', 'usuario'))->count();
-
-    return view('admin.usuarios.index', compact(
-        'usuarios', 'totalAdmin', 'totalGestor', 'totalUsuario'
-    ));
-}
 
 
     public function create()
@@ -110,7 +110,11 @@ class AdminUsuarioController extends Controller
             $data['contrasena'] = Hash::make($validated['contrasena']);
         }
 
+        $valoresAnteriores = $usuario->only(['nombre_completo', 'correo', 'ci', 'rol_id', 'activo']);
         $usuario->update($data);
+        $valoresNuevos = $usuario->only(['nombre_completo', 'correo', 'ci', 'rol_id', 'activo']);
+
+        \App\Services\ActivityLogger::log('actualizacion', "Actualización de datos del usuario: $usuario->nombre_completo", $usuario, $valoresAnteriores, $valoresNuevos);
 
         return redirect()
             ->route('admin.usuarios.index')
@@ -122,52 +126,72 @@ class AdminUsuarioController extends Controller
     {
         $usuario = Usuario::findOrFail($id);
         $usuario->delete();
-        
+
         return redirect()
             ->route('admin.usuarios.index')
             ->with('success', 'Usuario eliminado correctamente.');
     }
-// Mostrar detalles de un usuario
-public function show($id)
-{
-    $usuario = Usuario::with('rol')->findOrFail($id);
-    return view('admin.usuarios.show', compact('usuario'));
-}
 
-// Desactivar usuario
-public function desactivar($id)
-{
-    $usuario = Usuario::findOrFail($id);
-    $usuario->activo = false;
-    $usuario->save();
+    // Mostrar detalles de un usuario
+    public function show($id)
+    {
+        $usuario = Usuario::with('rol')->findOrFail($id);
+        return view('admin.usuarios.show', compact('usuario'));
+    }
 
-    return redirect()->route('admin.usuarios.index')
-        ->with('success', 'Usuario desactivado correctamente.');
-}
+    // Desactivar usuario
+    public function desactivar($id)
+    {
+        $usuario = Usuario::findOrFail($id);
+        $usuario->activo = false;
+        $usuario->save();
 
+        return redirect()->route('admin.usuarios.index')
+            ->with('success', 'Usuario desactivado correctamente.');
+    }
 
-// (Opcional) Historial: podrías mostrar cambios o préstamos
-public function historial($id)
-{
-    $usuario = Usuario::with('prestamos.planPagos')->findOrFail($id);
-    return view('admin.usuarios.historial', compact('usuario'));
-}
+    // (Opcional) Historial: podrías mostrar cambios o préstamos
+    public function historial($id)
+    {
+        $usuario = Usuario::with('prestamos.planPagos')->findOrFail($id);
+        return view('admin.usuarios.historial', compact('usuario'));
+    }
 
-public function activar($id)
-{
-    $usuario = Usuario::findOrFail($id);
-    $usuario->activo = true;
-    $usuario->save();
+    public function activar($id)
+    {
+        $usuario = Usuario::findOrFail($id);
+        $usuario->activo = true;
+        $usuario->save();
 
-    return redirect()->route('admin.usuarios.index')
-        ->with('success', 'Usuario activado correctamente.');
-}
+        return redirect()->route('admin.usuarios.index')
+            ->with('success', 'Usuario activado correctamente.');
+    }
+    public function exportarPDF(Request $request)
+    {
+        $query = Usuario::with('rol');
 
-public function exportarPDF()
-{
-    $usuarios = Usuario::with('rol')->get();
-    $pdf = Pdf::loadView('admin.usuarios.pdf', compact('usuarios'));
-    return $pdf->download('usuarios_tienda_hogar.pdf');
-}
+        if ($request->filled('buscar')) {
+            $query->where(function ($q) use ($request) {
+                $q->where('nombre_completo', 'like', '%' . $request->buscar . '%')
+                    ->orWhere('correo', 'like', '%' . $request->buscar . '%');
+            });
+        }
+
+        if ($request->filled('rol')) {
+            $query->whereHas('rol', function ($q) use ($request) {
+                $q->where('nombre', $request->rol);
+            });
+        }
+
+        if ($request->filled('estado')) {
+            $activo = $request->estado === 'activo' ? 1 : 0;
+            $query->where('activo', $activo);
+        }
+
+        $usuarios = $query->get();
+
+        $pdf = Pdf::loadView('admin.usuarios.pdf', compact('usuarios'));
+        return $pdf->download('usuarios_filtrados.pdf');
+    }
 
 }

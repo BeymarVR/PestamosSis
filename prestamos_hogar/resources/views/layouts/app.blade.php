@@ -72,6 +72,17 @@
         Capital
     </a>
 
+           <a href="{{ route('admin.bitacora.index') }}" class="group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 {{ request()->routeIs('admin.bitacora.*') ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-700' : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900' }}">
+    
+    <!-- Icono Logs / Historial -->
+    <svg class="mr-3 w-5 h-5 {{ request()->routeIs('admin.bitacora.*') ? 'text-blue-600' : 'text-slate-400 group-hover:text-slate-500' }}" 
+         fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M12 8v4l3 3M12 3a9 9 0 109 9M12 3v4M3 12h4"/>
+    </svg>
+
+    Logs
+</a>
 
                           <!-- DASHBOARD GESTOR -->
                         @elseif(auth()->user()->rol->nombre === 'gestor')
@@ -268,7 +279,7 @@
                     ->orderBy('created_at', 'desc')->take(10)->get();
             @endphp
 
-            @forelse ($notificaciones as $noti)
+            @forelse($notificaciones as $noti)
                 <div class="notification-item {{ !$noti->leida ? 'unread' : 'read' }}" 
                      data-id="{{ $noti->id }}" 
                      onclick="markAsRead({{ $noti->id }})">

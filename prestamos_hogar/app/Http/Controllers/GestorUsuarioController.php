@@ -17,7 +17,7 @@ class GestorUsuarioController extends Controller
         if ($request->filled('buscar')) {
             $query->where(function ($q) use ($request) {
                 $q->where('nombre_completo', 'like', '%' . $request->buscar . '%')
-                  ->orWhere('correo', 'like', '%' . $request->buscar . '%');
+                    ->orWhere('correo', 'like', '%' . $request->buscar . '%');
             });
         }
 
@@ -80,10 +80,25 @@ class GestorUsuarioController extends Controller
         return view('gestor.usuarios.plan_pagos', compact('usuario'));
     }
 
-    public function exportarPDF()
+    public function exportarPDF(Request $request)
     {
-        $usuarios = Usuario::with('rol')->whereHas('rol', fn($q) => $q->where('nombre', 'usuario'))->get();
+        $query = Usuario::with('rol')->whereHas('rol', fn($q) => $q->where('nombre', 'usuario'));
+
+        if ($request->filled('buscar')) {
+            $query->where(function ($q) use ($request) {
+                $q->where('nombre_completo', 'like', '%' . $request->buscar . '%')
+                    ->orWhere('correo', 'like', '%' . $request->buscar . '%');
+            });
+        }
+
+        if ($request->filled('estado')) {
+            $activo = $request->estado === 'activo' ? 1 : 0;
+            $query->where('activo', $activo);
+        }
+
+        $usuarios = $query->get();
+
         $pdf = Pdf::loadView('gestor.usuarios.pdf', compact('usuarios'));
-        return $pdf->download('clientes_tienda_hogar.pdf');
+        return $pdf->download('reporte_clientes_filtrado.pdf');
     }
 }

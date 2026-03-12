@@ -11,7 +11,7 @@
             <p class="mt-1 text-sm text-slate-600">Gestiona todos los clientes del sistema</p>
         </div>
         <div class="flex items-center space-x-3">
-            <a href="{{ route('gestor.usuarios.exportar') }}" 
+            <a href="{{ route('gestor.usuarios.exportar', request()->query()) }}" 
    class="ml-4 inline-flex items-center px-3 py-2 text-sm font-medium text-white bg-blue-600 rounded hover:bg-blue-700 transition-colors duration-200">
    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>

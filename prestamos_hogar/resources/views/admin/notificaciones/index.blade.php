@@ -86,7 +86,7 @@
 
     <!-- Lista de Notificaciones -->
     <div class="notifications-list">
-        @forelse ($notificaciones as $notificacion)
+        @forelse($notificaciones as $notificacion)
             <div class="notification-card {{ $notificacion->leida ? 'read' : 'unread' }}" 
                  data-id="{{ $notificacion->id }}"
                  data-status="{{ $notificacion->leida ? 'read' : 'unread' }}"

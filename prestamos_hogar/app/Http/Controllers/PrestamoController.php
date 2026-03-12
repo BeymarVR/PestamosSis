@@ -25,66 +25,68 @@ class PrestamoController extends Controller
         $this->moraService = $moraService;
     }
 
- public function index(Request $request)
-{
-    $query = Prestamo::with('usuario')->latest();
-    if ($request->filled('usuario_id')) {
-        $query->where('usuario_id', $request->usuario_id);
-    }
-    // Filtro por nombre del usuario
-    if ($request->filled('buscar')) {
-        $query->whereHas('usuario', function ($q) use ($request) {
-            $q->where('nombre_completo', 'ILIKE', '%' . $request->buscar . '%');
-        });
-    }
-
-    // Filtro por estado
-    if ($request->filled('estado')) {
-        $query->where('estado', $request->estado);
-    }
-
-    // Orden por monto
-    if ($request->orden === 'asc') {
-        $query->orderBy('monto', 'asc');
-    } elseif ($request->orden === 'desc') {
-        $query->orderBy('monto', 'desc');
-    } else {
-        $query->latest(); // orden por fecha por defecto
-    }
-
-    $prestamos = $query->paginate(10);
-
-    return view('admin.prestamos.index', compact('prestamos'));
-}
-
-public function create(Request $request)
-{
-    $usuarios = Usuario::all();
-    $capitalDisponible = Capital::latest()->first()->monto_actual ?? 0;
-    
-    // Si viene de una solicitud, precargar datos
-    $solicitud = null;
-    $usuarioSeleccionado = null;
-    $montoPrecargado = null;
-    
-    if ($request->has('solicitud_id')) {
-        $solicitud = SolicitudCredito::with('usuario')->find($request->solicitud_id);
-        if ($solicitud && $solicitud->estaAprobada() && !$solicitud->tienePrestamo()) {
-            $usuarioSeleccionado = $solicitud->usuario;
-            $montoPrecargado = $solicitud->monto_solicitado;
+    public function index(Request $request)
+    {
+        $query = Prestamo::with('usuario')->latest();
+        if ($request->filled('usuario_id')) {
+            $query->where('usuario_id', $request->usuario_id);
         }
-    } elseif ($request->has('usuario_id')) {
-        $usuarioSeleccionado = Usuario::find($request->usuario_id);
+        // Filtro por nombre del usuario
+        if ($request->filled('buscar')) {
+            $query->whereHas('usuario', function ($q) use ($request) {
+                $q->where('nombre_completo', 'ILIKE', '%' . $request->buscar . '%');
+            });
+        }
+
+        // Filtro por estado
+        if ($request->filled('estado')) {
+            $query->where('estado', $request->estado);
+        }
+
+        // Orden por monto
+        if ($request->orden === 'asc') {
+            $query->orderBy('monto', 'asc');
+        }
+        elseif ($request->orden === 'desc') {
+            $query->orderBy('monto', 'desc');
+        }
+        else {
+            $query->latest(); // orden por fecha por defecto
+        }
+
+        $prestamos = $query->paginate(10);
+
+        return view('admin.prestamos.index', compact('prestamos'));
     }
-    
-    return view('admin.prestamos.create', compact(
-        'usuarios', 
-        'capitalDisponible',
-        'solicitud',
-        'usuarioSeleccionado',
-        'montoPrecargado'
-    ));
-}
+    public function create(Request $request)
+    {
+        $usuarios = Usuario::all();
+        $capitalDisponible = Capital::latest()->first()->monto_actual ?? 0;
+
+        // Si viene de una solicitud, precargar datos
+        $solicitud = null;
+        $usuarioSeleccionado = null;
+        $montoPrecargado = null;
+
+        if ($request->has('solicitud_id')) {
+            $solicitud = SolicitudCredito::with('usuario')->find($request->solicitud_id);
+            if ($solicitud && $solicitud->estaAprobada() && !$solicitud->tienePrestamo()) {
+                $usuarioSeleccionado = $solicitud->usuario;
+                $montoPrecargado = $solicitud->monto_solicitado;
+            }
+        }
+        elseif ($request->has('usuario_id')) {
+            $usuarioSeleccionado = Usuario::find($request->usuario_id);
+        }
+
+        return view('admin.prestamos.create', compact(
+            'usuarios',
+            'capitalDisponible',
+            'solicitud',
+            'usuarioSeleccionado',
+            'montoPrecargado'
+        ));
+    }
 
     public function edit($id)
     {
@@ -132,7 +134,11 @@ public function create(Request $request)
             ]);
         }
 
+        $valoresAnteriores = $prestamo->only(['usuario_id', 'monto', 'tasa_interes_mensual', 'plazo_meses', 'frecuencia_pago', 'fecha_desembolso', 'estado']);
         $prestamo->update($request->all());
+        $valoresNuevos = $prestamo->only(['usuario_id', 'monto', 'tasa_interes_mensual', 'plazo_meses', 'frecuencia_pago', 'fecha_desembolso', 'estado']);
+
+        \App\Services\ActivityLogger::log('actualizacion', 'Edición de préstamo ' . $prestamo->codigo, $prestamo, $valoresAnteriores, $valoresNuevos);
 
         // Eliminar cuotas anteriores y generar nuevas
         $prestamo->planPagos()->delete();
@@ -140,84 +146,86 @@ public function create(Request $request)
 
         return redirect()->route('admin.prestamos.index')->with('success', 'Préstamo actualizado y plan de pagos regenerado.');
     }
+    public function store(Request $request)
+    {
+        $request->validate([
+            'usuario_id' => 'required|exists:usuarios,id',
+            'monto' => 'required|numeric|min:1',
+            'tasa_interes_mensual' => 'required|numeric|min:0',
+            'plazo_meses' => 'required|integer|min:1|max:3',
+            'frecuencia_pago' => 'required|in:diario,semanal,quincenal,mensual',
+            'fecha_desembolso' => 'required|date',
+            'referencia_celular' => 'nullable|string|max:20',
+            'solicitud_id' => 'nullable|exists:solicitud_creditos,id',
+        ]);
 
-public function store(Request $request)
-{
-    $request->validate([
-        'usuario_id' => 'required|exists:usuarios,id',
-        'monto' => 'required|numeric|min:1',
-        'tasa_interes_mensual' => 'required|numeric|min:0',
-        'plazo_meses' => 'required|integer|min:1|max:3',
-        'frecuencia_pago' => 'required|in:diario,semanal,quincenal,mensual',
-        'fecha_desembolso' => 'required|date',
-        'referencia_celular' => 'nullable|string|max:20',
-        'solicitud_id' => 'nullable|exists:solicitud_creditos,id',
-    ]);
+        $capital = Capital::latest()->first();
+        $montoPrestamo = $request->monto;
 
-    $capital = Capital::latest()->first();
-    $montoPrestamo = $request->monto;
-
-    if (!$capital || $capital->monto_actual < $montoPrestamo) {
-        return back()->with('error', 'No hay suficiente capital disponible para este préstamo');
-    }
-
-    // Verificar si el usuario tiene solicitud aprobada (solo si no viene de solicitud)
-    if (!$request->has('solicitud_id')) {
-        $solicitudAprobada = SolicitudCredito::where('usuario_id', $request->usuario_id)
-            ->where('estado', 'aprobada')
-            ->whereNull('prestamo_id')
-            ->first();
-        
-        if (!$solicitudAprobada) {
-            return back()->with('error', 'El cliente debe tener una solicitud de crédito APROBADA antes de crear un préstamo.');
+        if (!$capital || $capital->monto_actual < $montoPrestamo) {
+            return back()->with('error', 'No hay suficiente capital disponible para este préstamo');
         }
-        
-        $solicitudId = $solicitudAprobada->id;
-    } else {
-        $solicitudId = $request->solicitud_id;
-    }
 
-    $prestamo = Prestamo::create([
-        'codigo' => 'PRE-' . Str::upper(Str::random(6)),
-        'usuario_id' => $request->usuario_id,
-        'monto' => $montoPrestamo,
-        'tasa_interes_mensual' => $request->tasa_interes_mensual,
-        'plazo_meses' => $request->plazo_meses,
-        'frecuencia_pago' => $request->frecuencia_pago,
-        'fecha_desembolso' => $request->fecha_desembolso,
-        'estado' => 'vigente',
-        'referencia_celular' => $request->referencia_celular,
-    ]);
+        // Verificar si el usuario tiene solicitud aprobada (solo si no viene de solicitud)
+        if (!$request->has('solicitud_id')) {
+            $solicitudAprobada = SolicitudCredito::where('usuario_id', $request->usuario_id)
+                ->where('estado', 'aprobada')
+                ->whereNull('prestamo_id')
+                ->first();
 
-    // Vincular préstamo con solicitud
-    if ($solicitudId) {
-        $solicitud = SolicitudCredito::find($solicitudId);
-        if ($solicitud) {
-            $solicitud->update([
-                'prestamo_id' => $prestamo->id,
-                'fecha_firma_contrato' => now()
-            ]);
+            if (!$solicitudAprobada) {
+                return back()->with('error', 'El cliente debe tener una solicitud de crédito APROBADA antes de crear un préstamo.');
+            }
+
+            $solicitudId = $solicitudAprobada->id;
         }
+        else {
+            $solicitudId = $request->solicitud_id;
+        }
+
+        $prestamo = Prestamo::create([
+            'codigo' => 'PRE-' . Str::upper(Str::random(6)),
+            'usuario_id' => $request->usuario_id,
+            'monto' => $montoPrestamo,
+            'tasa_interes_mensual' => $request->tasa_interes_mensual,
+            'plazo_meses' => $request->plazo_meses,
+            'frecuencia_pago' => $request->frecuencia_pago,
+            'fecha_desembolso' => $request->fecha_desembolso,
+            'estado' => 'vigente',
+            'referencia_celular' => $request->referencia_celular,
+        ]);
+
+        // Vincular préstamo con solicitud
+        if ($solicitudId) {
+            $solicitud = SolicitudCredito::find($solicitudId);
+            if ($solicitud) {
+                $solicitud->update([
+                    'prestamo_id' => $prestamo->id,
+                    'fecha_firma_contrato' => now()
+                ]);
+            }
+        }
+
+        Capital::create([
+            'monto_inicial' => -$montoPrestamo,
+            'monto_actual' => $capital->monto_actual - $montoPrestamo,
+            'descripcion' => "Préstamo a " . $prestamo->usuario->nombre_completo . " (ID: $prestamo->id)",
+            'usuario_id' => Auth::id()
+        ]);
+
+        // Actualizar fecha primer préstamo
+        $usuario = $prestamo->usuario;
+        if (!$usuario->fecha_primer_prestamo) {
+            $usuario->fecha_primer_prestamo = $prestamo->fecha_desembolso ?? now();
+            $usuario->save();
+        }
+
+        $this->generarPlanPagos($prestamo);
+
+        \App\Services\ActivityLogger::log('creacion', "Registro de nuevo préstamo ($prestamo->codigo) para " . $prestamo->usuario->nombre_completo, $prestamo, null, $prestamo->toArray());
+
+        return redirect()->route('admin.prestamos.index')->with('success', 'Préstamo registrado correctamente con plan de pagos generado.');
     }
-
-    Capital::create([
-        'monto_inicial' => -$montoPrestamo,
-        'monto_actual' => $capital->monto_actual - $montoPrestamo,
-        'descripcion' => "Préstamo a " . $prestamo->usuario->nombre_completo . " (ID: $prestamo->id)",
-        'usuario_id' => Auth::id()
-    ]);
-
-    // Actualizar fecha primer préstamo
-    $usuario = $prestamo->usuario;
-    if (!$usuario->fecha_primer_prestamo) {
-        $usuario->fecha_primer_prestamo = $prestamo->fecha_desembolso ?? now();
-        $usuario->save();
-    }
-
-    $this->generarPlanPagos($prestamo);
-
-    return redirect()->route('admin.prestamos.index')->with('success', 'Préstamo registrado correctamente con plan de pagos generado.');
-}
 
     public function cancelar($id)
     {
@@ -236,6 +244,8 @@ public function store(Request $request)
 
         $prestamo->update(['estado' => 'cancelado']);
 
+        \App\Services\ActivityLogger::log('actualizacion', "Préstamo {$prestamo->codigo} cancelado manualmente.", $prestamo);
+
         return back()->with('success', 'Préstamo cancelado y capital reintegrado');
     }
 
@@ -248,7 +258,7 @@ public function store(Request $request)
         $plazo = $prestamo->plazo_meses;
         $fechaInicio = Carbon::parse($prestamo->fecha_desembolso);
 
-        switch($prestamo->frecuencia_pago) {
+        switch ($prestamo->frecuencia_pago) {
             case 'diario':
                 $numCuotas = $plazo * 30;
                 $intervalo = '1 day';
@@ -292,32 +302,30 @@ public function store(Request $request)
             ]);
         }
     }
+    public function showPlanPagos($id)
+    {
+        $prestamo = Prestamo::with(['usuario', 'planPagos.mora'])->findOrFail($id);
 
-public function showPlanPagos($id)
-{
-    $prestamo = Prestamo::with(['usuario', 'planPagos.mora'])->findOrFail($id);
+        $this->moraService->aplicarMorasMasivas($prestamo->planPagos);
 
-    $this->moraService->aplicarMorasMasivas($prestamo->planPagos);
+        // ✅ Verifica si alguna cuota está en mora
+        $tieneMoras = $prestamo->planPagos->contains(function ($cuota) {
+            return $cuota->mora && $cuota->mora->estado === 'activa';
+        });
 
- // ✅ Verifica si alguna cuota está en mora
-    $tieneMoras = $prestamo->planPagos->contains(function ($cuota) {
-        return $cuota->mora && $cuota->mora->estado === 'activa';
-    });
+        if ($tieneMoras && $prestamo->estado !== 'mora') {
+            $prestamo->estado = 'mora';
+            $prestamo->save();
+        }
 
-    if ($tieneMoras && $prestamo->estado !== 'mora') {
-        $prestamo->estado = 'mora';
-        $prestamo->save();
+        return view('admin.prestamos.plan-pagos', compact('prestamo'));
     }
 
-    return view('admin.prestamos.plan-pagos', compact('prestamo'));
-}
-
-
-public function show($id)
-{
-    $prestamo = Prestamo::with(['usuario', 'planPagos.pagos', 'planPagos.mora'])->findOrFail($id);
-    return view('admin.prestamos.show', compact('prestamo'));
-}
+    public function show($id)
+    {
+        $prestamo = Prestamo::with(['usuario', 'planPagos.pagos', 'planPagos.mora'])->findOrFail($id);
+        return view('admin.prestamos.show', compact('prestamo'));
+    }
 
 
     public function generarPlanPagosPDF($id)
@@ -336,31 +344,34 @@ public function show($id)
     }
 
     public function destroy($id)
-{
-    $prestamo = Prestamo::with('pagos')->findOrFail($id);
+    {
+        $prestamo = Prestamo::with('pagos')->findOrFail($id);
 
-    // Validar si ya tiene pagos
-    if ($prestamo->planPagos()->has('pagos')->exists()) {
-        return back()->with('error', 'No se puede eliminar un préstamo que ya tiene pagos registrados.');
+        // Validar si ya tiene pagos
+        if ($prestamo->planPagos()->has('pagos')->exists()) {
+            return back()->with('error', 'No se puede eliminar un préstamo que ya tiene pagos registrados.');
+        }
+
+        // Reintegrar capital si estaba vigente
+        if ($prestamo->estado == 'vigente') {
+            $capital = \App\Models\Capital::latest()->first();
+            \App\Models\Capital::create([
+                'monto_inicial' => $prestamo->monto,
+                'monto_actual' => $capital->monto_actual + $prestamo->monto,
+                'descripcion' => "Reintegro por eliminación del préstamo ID: $prestamo->id",
+                'usuario_id' => Auth::id()
+            ]);
+        }
+
+        // Eliminar el préstamo y plan de pagos en cascada
+        $codigo = $prestamo->codigo;
+        $prestamo->delete();
+
+        \App\Services\ActivityLogger::log('eliminacion', "Eliminación del préstamo código: $codigo");
+
+        return redirect()->route('admin.prestamos.index')
+            ->with('success', 'Préstamo eliminado correctamente.');
     }
-
-    // Reintegrar capital si estaba vigente
-    if ($prestamo->estado == 'vigente') {
-        $capital = \App\Models\Capital::latest()->first();
-        \App\Models\Capital::create([
-            'monto_inicial' => $prestamo->monto,
-            'monto_actual' => $capital->monto_actual + $prestamo->monto,
-            'descripcion' => "Reintegro por eliminación del préstamo ID: $prestamo->id",
-            'usuario_id' => Auth::id()
-        ]);
-    }
-
-    // Eliminar el préstamo y plan de pagos en cascada
-    $prestamo->delete();
-
-    return redirect()->route('admin.prestamos.index')
-        ->with('success', 'Préstamo eliminado correctamente.');
-}
 
 
 }

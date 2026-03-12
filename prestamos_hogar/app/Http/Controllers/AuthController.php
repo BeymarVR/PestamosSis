@@ -44,33 +44,37 @@ class AuthController extends Controller
         return redirect()->route('login')->with('success', 'Registro exitoso. Ahora puedes iniciar sesión.');
     }
 
-   public function login(Request $request)
-{
-    $request->validate([
-        'correo' => 'required|email',
-        'contrasena' => 'required',
-    ]);
+    public function login(Request $request)    {
+        $request->validate([
+            'correo' => 'required|email',
+            'contrasena' => 'required',
+        ]);
 
-    $usuario = \App\Models\Usuario::where('correo', $request->correo)->first();
+        $usuario = \App\Models\Usuario::where('correo', $request->correo)->first();
 
-    if ($usuario && Hash::check($request->contrasena, $usuario->contrasena)) {
-        Auth::login($usuario); // Inicia sesión manualmente
+        if ($usuario && Hash::check($request->contrasena, $usuario->contrasena)) {
+            Auth::login($usuario); // Inicia sesión manualmente
 
-        if ($usuario->rol->nombre === 'admin') {
-            return redirect()->route('dashboard');
-        } elseif ($usuario->rol->nombre === 'gestor') {
-            return redirect()->route('gestor.dashboard');
-        } else {
-            return redirect()->route('usuario.dashboard');
+            if ($usuario->rol->nombre === 'admin') {
+                \App\Services\ActivityLogger::log('login', 'Inicio de sesión - Administrador');
+                return redirect()->route('dashboard');
+            }
+            elseif ($usuario->rol->nombre === 'gestor') {
+                \App\Services\ActivityLogger::log('login', 'Inicio de sesión - Gestor');
+                return redirect()->route('gestor.dashboard');
+            }
+            else {
+                \App\Services\ActivityLogger::log('login', 'Inicio de sesión - Usuario');
+                return redirect()->route('usuario.dashboard');
+            }
         }
-    }
 
-    return back()->withErrors(['correo' => 'Credenciales incorrectas.']);
-}
+        return back()->withErrors(['correo' => 'Credenciales incorrectas.']);    }
 
 
     public function logout()
     {
+        \App\Services\ActivityLogger::log('logout', 'Cierre de sesión');
         Auth::logout();
         return redirect()->route('login')->with('success', 'Sesión cerrada correctamente.');
     }

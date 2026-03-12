@@ -16,7 +16,7 @@
         </div>
 
         <div class="p-6">
-            @forelse ($prestamos->sortByDesc('created_at') as $prestamo)
+            @forelse($prestamos->sortByDesc('created_at') as $prestamo)
                 <div class="relative pl-8 {{ !$loop->last ? 'pb-8 border-l-2 border-slate-200 ml-4' : 'ml-4' }}">
                     <div class="absolute -left-2 top-0 w-4 h-4 rounded-full border-2 border-white shadow-sm
                         {{ $prestamo->estado == 'vigente' ? 'bg-green-500' :
