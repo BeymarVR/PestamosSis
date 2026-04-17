@@ -28,6 +28,11 @@ class Usuario extends Authenticatable
         'contrasena',
     ];
 
+    protected $casts = [
+        'ci' => 'encrypted',
+        'celular' => 'encrypted',
+    ];
+
     /**
      * Relación con el rol del usuario.
      *

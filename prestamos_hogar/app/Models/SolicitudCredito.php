@@ -97,6 +97,12 @@ class SolicitudCredito extends Model
         'tipo_cambio' => 'decimal:4',
         'datos_laborales' => 'array',
         'archivos_adjuntos' => 'array',
+        'telefono_fijo' => 'encrypted',
+        'celular_solicitante' => 'encrypted',
+        'conyuge_ci' => 'encrypted',
+        'conyuge_celular' => 'encrypted',
+        'garante_ci' => 'encrypted',
+        'garante_celular' => 'encrypted',
     ];
 
     /**

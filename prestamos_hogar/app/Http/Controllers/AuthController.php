@@ -26,10 +26,14 @@ class AuthController extends Controller
             'nombre_completo' => 'required|string|max:255',
             'correo' => 'required|email|unique:usuarios,correo',
             'contrasena' => 'required|min:6|confirmed',
-            'ci' => 'required|unique:usuarios,ci',
+            'ci' => 'required',
             'expedido' => 'nullable|string|max:5',
             'celular' => 'nullable|string|max:20',
         ]);
+
+        if (Usuario::all()->contains('ci', $request->ci)) {
+            return back()->withInput()->withErrors(['ci' => 'El CI ya está registrado.']);
+        }
 
         $usuario = Usuario::create([
             'nombre_completo' => $request->nombre_completo,

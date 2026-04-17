@@ -56,11 +56,15 @@ class AdminUsuarioController extends Controller
             'nombre_completo' => 'required|string|max:255',
             'correo' => 'required|email|unique:usuarios,correo',
             'contrasena' => 'required|min:6|confirmed',
-            'ci' => 'required|unique:usuarios,ci',
+            'ci' => 'required',
             'expedido' => 'nullable|string|max:5',
             'celular' => 'nullable|string|max:20',
             'rol_id' => 'required|exists:roles,id',
         ]);
+
+        if (Usuario::all()->contains('ci', $validated['ci'])) {
+             return back()->withInput()->withErrors(['ci' => 'El CI ya está registrado.']);
+        }
 
         Usuario::create([
             'nombre_completo' => $validated['nombre_completo'],
@@ -89,12 +93,17 @@ class AdminUsuarioController extends Controller
         $validated = $request->validate([
             'nombre_completo' => 'required|string|max:255',
             'correo' => "required|email|unique:usuarios,correo,$id",
-            'ci' => "required|unique:usuarios,ci,$id",
+            'ci' => "required",
             'expedido' => 'nullable|string|max:5',
             'celular' => 'nullable|string|max:20',
             'rol_id' => 'required|exists:roles,id',
             'contrasena' => 'nullable|min:6|confirmed',
         ]);
+        
+        $exists = Usuario::where('id', '!=', $id)->get()->contains('ci', $validated['ci']);
+        if ($exists) {
+             return back()->withInput()->withErrors(['ci' => 'El CI ya está registrado por otro usuario.']);
+        }
 
         $usuario = Usuario::findOrFail($id);
         $data = [

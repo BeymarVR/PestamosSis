@@ -26,6 +26,7 @@ class Prestamo extends Model
         'fecha_desembolso' => 'date',
          'fecha_inicio' => 'datetime',
     'fecha_fin_estimada' => 'datetime',
+        'referencia_celular' => 'encrypted',
     ];
 
     public function usuario()

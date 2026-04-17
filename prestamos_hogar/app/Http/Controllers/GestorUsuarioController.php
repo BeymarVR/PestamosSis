@@ -44,10 +44,14 @@ class GestorUsuarioController extends Controller
             'nombre_completo' => 'required|string|max:255',
             'correo' => 'required|email|unique:usuarios',
             'contrasena' => 'required|min:6',
-            'ci' => 'required|string|max:20|unique:usuarios',
+            'ci' => 'required|string|max:20',
             'expedido' => 'required|string|max:5',
             'celular' => 'required|string|max:20',
         ]);
+
+        if (\App\Models\Usuario::all()->contains('ci', $request->ci)) {
+            return back()->withInput()->withErrors(['ci' => 'El CI ya está registrado.']);
+        }
 
         Usuario::create([
             'nombre_completo' => $request->nombre_completo,

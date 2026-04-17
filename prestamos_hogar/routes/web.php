@@ -127,6 +127,12 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
             Route::get('/{id}/pdf', [\App\Http\Controllers\BitacoraController::class , 'exportarPDF'])->name('pdf');
         }
         );
+
+        // ---------- NIST CSF 2.0 ----------
+        Route::prefix('nist')->name('nist.')->group(function () {
+            Route::get('/', [\App\Http\Controllers\NistCsfController::class , 'index'])->name('index');
+        }
+        );
     });
 
 // Rutas adicionales admin
